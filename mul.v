@@ -19,33 +19,33 @@ wire carry, overflow;
 assign p[NEXP+NSIG] = a[NEXP+NSIG] ^ b[NEXP+NSIG];
 wire [2*NSIG+1:0]pSig = abfSig * bbfSig; //should be of form 1xxx... 16 bits
 wire [NSIG-1:0]roundedSig;
-assign {carry, tempExp} = a[NEXP+NSIG-1:NSIG] + b[NEXP+NSIG-1:NSIG] - {1'b0, {NEXP-1{1'b1}}} // to check for the last carry bit
+assign {carry, tempExp} = a[NEXP+NSIG-1:NSIG] + b[NEXP+NSIG-1:NSIG] - {1'b0, {NEXP-1{1'b1}}}; // to check for the last carry bit
 
 if (abfFlags[SUBNORMAL]) tempExp = tempExp - asubnormalShift;
 if (bbfFlags[SUBNORMAL]) tempExp = tempExp - bsubnormalShift;
 exception[INEXACT] = |pSig[NSIG:0];
 
-
 always @(*) begin
     // 1. all three outlier cases
-    if (abfFlags[QNAN:SNAN] || bbfFlags[QNAN:SNAN]) begin
-        bfFlags[QNAN] = 1;
-        p[NSIG+NEXP-1:0] = nan;  //complete
-        exception[INVALID] = 1;
-    end
-    else if ((abfFlags[ZERO] & bbfFlags[INFINITY]) || (abfFlags[INFINITY] & bbfFlags[ZERO])) begin
-        bfFlags[QNAN] = 1;
-        p[NSIG+NEXP-1:0] = nan;  //complete
-        exception[INVALID] = 1;
-    end
-    else if (abfFlags[INFINITY] & bbfFlags[INFINITY]) begin
+    if (abfFlags[INFINITY] & bbfFlags[INFINITY]) begin
         bfFlags[INFINITY] = 1;
-        p[NSIG+NEXP-1:0] = inf;  //complete
-        exception[OVERFLOW] = 1;
+        p[NSIG+NEXP-1:0] = inf;
     end
-    else if (abfFlags[ZERO] & bbfFlags[ZERO]) begin
+    else if ((abfFlags[INFINITY] & |bbfFlags[NORMAL:SUBNORMAL]) && (bbfFlags[INFINITY] & abfFlags[NORMAL:SUBNORMAL])) begin
+        bfFlags[INFINITY] = 1;
+        p[NSIG+NEXP-1:0] = inf;
+    end
+    else if ((abfFlags[ZERO] & bbfFlags[INFINITY]) || (bbfFlags[ZERO] & abfFlags[INFINITY])) begin
+        bfFlags[QNAN] = 1;
+        p[NSIG+NEXP-1:0] = nan;
+    end
+    else if (abfFlags[ZERO] || bbfFlags[ZERO]) begin
         bfFlags[ZERO] = 1;
-        p[NSIG+NEXP-1:0] = zero;  //complete
+        p[NSIG+NEXP-1:0] = zero;
+    end
+    else if (|abfFlags[QNAN:SNAN] || |bbfFlags[QNAN:SNAN]) begin
+        bfFlags[QNAN] = 1;
+        p[NSIG+NEXP-1:0] = nan;
     end
 
     // 2. all subnormal cases
@@ -101,7 +101,7 @@ always @(*) begin
     // b. if normal
     else begin
         round r0(.roundedSig(roundedSig), .pSig(pSig), .overflow(overflow)); //yet to make
-        bfFlags[SUBNORMAL] = 1;
+        bfFlags[NORMAL] = 1;
         p[NSIG+NEXP-1:0] = {tempExp, roundedSig};
     end
 end

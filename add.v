@@ -26,36 +26,38 @@ assign bExp = b[NEXP+NSIG-1:NSIG];
 assign aSig = a[NSIG-1:0];
 assign bSig = b[NSIG-1:0];
 
-// 1. outlier cases
-if (abfFlags[QNAN:SNAN] || bbfFlags[QNAN:SNAN]) begin
-    bfFlags[QNAN] = 1;
-    s[NEXP+NSIG-1:0] = nan; // complete
-end
-else if (abfFlags[INFINITY] || bbfFlags[INFINITY]) begin
-    bfFlags[INFINITY] = 1;
-    s[NEXP+NSIG-1:0] = inf; // complete
-end
-else if (abfFlags[ZERO] && bbfFlags[ZERO]) begin
-    bfFlags[ZERO] = 1;
-    s[NEXP+NSIG-1:0] = zero; // complete
-end
-
-// 2. normal and subnormal cases
-// a. subnormal first
-else begin
-    maxExp = aExp >= bExp ? aExp:bExp;
-    ashifts = maxExp - aExp;
-    bshifts = maxExp - bExp;
-    if (abfFlags[SUBNORMAL]) ashifts = ashifts + asubnormalShift;
-    if (bbfFlags[SUBNORMAL]) bshifts = bshifts + bsubnormalShift;
-    aSig = aSig >> ashifts;
-    bSig = bSig >> bshifts; // both in appropriate form, with equal exponents
-    {carry, pSig} = aSig + bSig;
-    if (carry == 1'b1) begin
-        pSig = {1'b1, pSig[NSIG-1:1]};
-        maxExp = maxExp + NEXP'x1;
+always @(*) begin
+    // 1. outlier cases
+    if (|abfFlags[QNAN:SNAN] || |bbfFlags[QNAN:SNAN]) begin
+        bfFlags[QNAN] = 1;
+        s[NEXP+NSIG-1:0] = nan; // complete
+    end
+    else if (abfFlags[INFINITY] || bbfFlags[INFINITY]) begin
+        bfFlags[INFINITY] = 1;
+        s[NEXP+NSIG-1:0] = inf; // complete
+    end
+    else if (abfFlags[ZERO] && bbfFlags[ZERO]) begin
+        bfFlags[ZERO] = 1;
+        s[NEXP+NSIG-1:0] = zero; // complete
     end
 
-    s = {pSign, maxExp, pSig}; //complete
+    // 2. normal and subnormal cases
+    // a. subnormal first
+    else begin
+        maxExp = aExp >= bExp ? aExp:bExp;
+        ashifts = maxExp - aExp;
+        bshifts = maxExp - bExp;
+        if (abfFlags[SUBNORMAL]) ashifts = ashifts + asubnormalShift;
+        if (bbfFlags[SUBNORMAL]) bshifts = bshifts + bsubnormalShift;
+        aSig = aSig >> ashifts;
+        bSig = bSig >> bshifts; // both in appropriate form, with equal exponents
+        {carry, pSig} = aSig + bSig;
+        if (carry == 1'b1) begin
+            pSig = {1'b1, pSig[NSIG-1:1]};
+            maxExp = maxExp + NEXP'x1;
+        end
+
+        s = {pSign, maxExp, pSig}; //complete
+    end
 end
 endmodule
