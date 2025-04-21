@@ -1,27 +1,49 @@
 `include "class.sv"
 `include "add.v"
 
-module hp_add_subtract(
-    input [NEXP+NSIG:0]a, b, 
-    output [NEXP+NSIG:0]result,
-    output reg [NTYPES-1:0]bfFlags,
-    output reg [NEXCEPTIONS-1:0]exception // handle later.
+module hp_add_subtract #(parameter NEXP = 8, NSIG = 7)(
+    input [NEXP+NSIG:0] a, b,
+    input operation,  // 0 = add, 1 = subtract
+    output [NEXP+NSIG:0] result,
+    output reg [5:0] bfFlags,
+    output reg [4:0] exception
 );
-localparam signbit = NEXP+NSIG;
-reg sign;
-always @(*) begin
-    if (a[signbit] ^ b[signbit] == 1'b1) begin
-        if ((a[signbit-1:NSIG] > b[signbit-1:NSIG]) || (a[signbit-1:NSIG] == b[signbit-1:NSIG] && a[NSIG-1:0] > b[NSIG-1:0])) begin
-            sign = a[signbit];
+    localparam signbit = NEXP + NSIG;
+    flags_defs #(.NEXP(8), .NSIG(7)) flags();
+
+    // Effective operands after sign modification
+    wire [NEXP+NSIG:0] effective_b = {operation ? ~b[signbit] : b[signbit], b[signbit-1:0]};
+    reg actual_operation;
+    reg result_sign;
+
+    // Magnitude comparison logic
+    always @(*) begin
+        // Default values
+        actual_operation = operation;
+        result_sign = a[signbit];
+        
+        // Handle sign comparison and magnitude check
+        if (a[signbit] ^ effective_b[signbit]) begin
+            if (a[signbit-1:0] > effective_b[signbit-1:0]) begin
+                result_sign = a[signbit];
+                actual_operation = 1'b0;  // Effective subtraction
+            end else begin
+                result_sign = effective_b[signbit];
+                actual_operation = 1'b0;  // Effective subtraction
+            end
         end
-        else begin
-            sign = b[signbit];
-        end
-        a[signbit] = sign;
-        b[signbit] = sign;
     end
-end
 
-hp_add add_subtract(.a(a), .b(b), .s(result), .bfFlags(bfFlags), .exception(exception));
+    // Instantiate the adder core
+    hp_add add_core (
+        .a({result_sign, a[signbit-1:0]}),
+        .b({result_sign, effective_b[signbit-1:0]}),
+        .operation(actual_operation),
+        .s(result),
+        .bfFlags(bfFlags),
+        .exception(exception)
+    );
 
+    // Final sign assignment
+    assign result[signbit] = result_sign;
 endmodule
