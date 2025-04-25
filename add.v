@@ -1,5 +1,3 @@
-`include "class.sv"
-
 module hp_add #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NEXP+NSIG:0] a, b,
     input operation,  // 0 = add, 1 = subtract
@@ -7,7 +5,28 @@ module hp_add #(parameter NEXP = 8, parameter NSIG = 7)(
     output reg [5:0] bfFlags,
     output reg [4:0] exception
 );
-flags_defs #(.NEXP(NEXP), .NSIG(NSIG)) flags();
+localparam NORMAL    = 0;
+localparam SUBNORMAL = NORMAL + 1; // 1
+localparam ZERO      = SUBNORMAL + 1; //2 
+localparam INFINITY  = ZERO + 1; //3
+localparam QNAN      = INFINITY + 1; //4
+localparam SNAN      = QNAN + 1; //5
+
+localparam BIAS = ((1 << (NEXP - 1)) - 1); 
+localparam EMAX = BIAS; 
+localparam EMIN = (1 - EMAX); 
+
+localparam [NEXP+NSIG-1:0]nan = {{NEXP+1{1'b1}}, {NSIG-1{1'b0}}};
+localparam [NEXP+NSIG-1:0]inf = {{NEXP{1'b1}}, {NSIG{1'b0}}};
+localparam [NEXP+NSIG-1:0]zero = {(NEXP+NSIG){1'b0}};
+localparam roundTiesToEven     = 0;
+                            
+localparam INVALID             = 0;
+localparam DIVIDEBYZERO        = 1;
+localparam OVERFLOW            = 2;
+localparam UNDERFLOW           = 3;
+localparam INEXACT             = 4;
+
 wire [NSIG:0] abfSig, bbfSig;
 wire [5:0] abfFlags, bbfFlags;
 wire [NEXP-1:0] asubnormalShift, bsubnormalShift;
@@ -61,70 +80,70 @@ always @(*) begin
     sticky = 0;
     
     // 1. Exceptional cases first
-    if (abfFlags[flags.SNAN] || bbfFlags[flags.SNAN]) begin
-        bfFlags[flags.QNAN] = 1'b1;
+    if (abfFlags[SNAN] || bbfFlags[SNAN]) begin
+        bfFlags[QNAN] = 1'b1;
         s = {1'b0, {NEXP{1'b1}}, 1'b1, {(NSIG-1){1'b0}}};
-        exception[flags.INVALID] = 1'b1;
+        exception[INVALID] = 1'b1;
     end
-    else if (abfFlags[flags.QNAN] || bbfFlags[flags.QNAN]) begin
-        bfFlags[flags.QNAN] = 1'b1;
+    else if (abfFlags[QNAN] || bbfFlags[QNAN]) begin
+        bfFlags[QNAN] = 1'b1;
         s = {1'b0, {NEXP{1'b1}}, 1'b1, {(NSIG-1){1'b0}}};
     end
-    else if ((abfFlags[flags.INFINITY] && bbfFlags[flags.INFINITY]) && 
+    else if ((abfFlags[INFINITY] && bbfFlags[INFINITY]) && 
                 (a[NEXP+NSIG] != effective_b_sign)) begin
-        bfFlags[flags.QNAN] = 1'b1;
+        bfFlags[QNAN] = 1'b1;
         s = {1'b0, {NEXP{1'b1}}, 1'b1, {(NSIG-1){1'b0}}};
-        exception[flags.INVALID] = 1'b1;
+        exception[INVALID] = 1'b1;
     end
-    else if (abfFlags[flags.INFINITY]) begin
-        bfFlags[flags.INFINITY] = 1'b1;
+    else if (abfFlags[INFINITY]) begin
+        bfFlags[INFINITY] = 1'b1;
         s = {a[NEXP+NSIG], {NEXP{1'b1}}, {NSIG{1'b0}}};
     end
-    else if (bbfFlags[flags.INFINITY]) begin
-        bfFlags[flags.INFINITY] = 1'b1;
+    else if (bbfFlags[INFINITY]) begin
+        bfFlags[INFINITY] = 1'b1;
         s = {effective_b_sign, {NEXP{1'b1}}, {NSIG{1'b0}}};
     end
-    else if (abfFlags[flags.ZERO] && bbfFlags[flags.ZERO]) begin
+    else if (abfFlags[ZERO] && bbfFlags[ZERO]) begin
         if (a[NEXP+NSIG] == effective_b_sign) begin
-            bfFlags[flags.ZERO] = 1'b1;
+            bfFlags[ZERO] = 1'b1;
             s = {a[NEXP+NSIG], {(NEXP+NSIG){1'b0}}};
         end
         else begin
-            bfFlags[flags.ZERO] = 1'b1;
+            bfFlags[ZERO] = 1'b1;
             s = {1'b0, {(NEXP+NSIG){1'b0}}};
         end
     end
 
     // 2. Subnormal and normal cases
-    else if (abfFlags[flags.ZERO]) begin
-        if (bbfFlags[flags.NORMAL])
-            bfFlags[flags.NORMAL] = 1'b1;
-        else if (bbfFlags[flags.SUBNORMAL])
-            bfFlags[flags.SUBNORMAL] = 1'b1;
+    else if (abfFlags[ZERO]) begin
+        if (bbfFlags[NORMAL])
+            bfFlags[NORMAL] = 1'b1;
+        else if (bbfFlags[SUBNORMAL])
+            bfFlags[SUBNORMAL] = 1'b1;
         else
-            bfFlags[flags.ZERO] = 1'b1;
+            bfFlags[ZERO] = 1'b1;
         s = {effective_b_sign, b[NEXP+NSIG-1:0]};
     end
-    else if (bbfFlags[flags.ZERO]) begin
-        if (abfFlags[flags.NORMAL])
-            bfFlags[flags.NORMAL] = 1'b1;
-        else if (abfFlags[flags.SUBNORMAL])
-            bfFlags[flags.SUBNORMAL] = 1'b1;
+    else if (bbfFlags[ZERO]) begin
+        if (abfFlags[NORMAL])
+            bfFlags[NORMAL] = 1'b1;
+        else if (abfFlags[SUBNORMAL])
+            bfFlags[SUBNORMAL] = 1'b1;
         else
-            bfFlags[flags.ZERO] = 1'b1;
+            bfFlags[ZERO] = 1'b1;
         s = a;
     end
     else begin
         add_sigs = (a[NEXP+NSIG] == effective_b_sign);
-        a_exp = abfFlags[flags.SUBNORMAL] ? 1 : a[NEXP+NSIG-1:NSIG];
-        b_exp = bbfFlags[flags.SUBNORMAL] ? 1 : b[NEXP+NSIG-1:NSIG];
+        a_exp = abfFlags[SUBNORMAL] ? 1 : a[NEXP+NSIG-1:NSIG];
+        b_exp = bbfFlags[SUBNORMAL] ? 1 : b[NEXP+NSIG-1:NSIG];
         
-        a_sig = {1'b0, abfFlags[flags.NORMAL] ? 1'b1 : 1'b0, a[NSIG-1:0], 3'b000};
-        b_sig = {1'b0, bbfFlags[flags.NORMAL] ? 1'b1 : 1'b0, b[NSIG-1:0], 3'b000};
+        a_sig = {1'b0, abfFlags[NORMAL] ? 1'b1 : 1'b0, a[NSIG-1:0], 3'b000};
+        b_sig = {1'b0, bbfFlags[NORMAL] ? 1'b1 : 1'b0, b[NSIG-1:0], 3'b000};
         
-        if (abfFlags[flags.SUBNORMAL])
+        if (abfFlags[SUBNORMAL])
             a_sig = {1'b0, abfSig, 3'b000};
-        if (bbfFlags[flags.SUBNORMAL])
+        if (bbfFlags[SUBNORMAL])
             b_sig = {1'b0, bbfSig, 3'b000};
         
         if (a_exp > b_exp || (a_exp == b_exp && a_sig > b_sig)) begin
@@ -222,7 +241,7 @@ always @(*) begin
             end
         end
         if (is_zero_result) begin
-            bfFlags[flags.ZERO] = 1'b1;
+            bfFlags[ZERO] = 1'b1;
             s = {1'b0, {(NEXP+NSIG){1'b0}}};
         end
         else begin
@@ -240,25 +259,25 @@ always @(*) begin
             end
             
             if (max_exp >= {NEXP{1'b1}}) begin
-                bfFlags[flags.INFINITY] = 1'b1;
-                exception[flags.OVERFLOW] = 1'b1;
+                bfFlags[INFINITY] = 1'b1;
+                exception[OVERFLOW] = 1'b1;
                 s = {result_sign, {NEXP{1'b1}}, {NSIG{1'b0}}};
             end
             else if (max_exp == 0) begin
                 if (|sum_sig[NSIG+3:3])
-                    bfFlags[flags.SUBNORMAL] = 1'b1;
+                    bfFlags[SUBNORMAL] = 1'b1;
                 else
-                    bfFlags[flags.ZERO] = 1'b1;
+                    bfFlags[ZERO] = 1'b1;
                 
                 s = {result_sign, {NEXP{1'b0}}, sum_sig[NSIG+2:3]};
             end
             else begin
-                bfFlags[flags.NORMAL] = 1'b1;
+                bfFlags[NORMAL] = 1'b1;
                 s = {result_sign, max_exp[NEXP-1:0], sum_sig[NSIG+2:3]};
             end
             
             if (guard || round_bit || sticky)
-                exception[flags.INEXACT] = 1'b1;
+                exception[INEXACT] = 1'b1;
         end
     end
 end
