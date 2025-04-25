@@ -159,7 +159,7 @@ always @(*) begin
                 if (exp_diff > 0) begin
                     sticky = 0;
                     for (i = 0; i < NSIG+3; i = i + 1) begin
-                        if (i < exp_diff && b_sig[i])
+                        if (i < exp_diff && i < NSIG+3 && b_sig[i])
                             sticky = 1;
                     end
                     aligned_b_sig = b_sig >> exp_diff;
@@ -183,7 +183,7 @@ always @(*) begin
                 if (exp_diff > 0) begin
                     sticky = 0;
                     for (i = 0; i < NSIG+3; i = i + 1) begin
-                        if (i < exp_diff && a_sig[i])
+                        if (i < exp_diff && i < NSIG+3 && a_sig[i])
                             sticky = 1;
                     end
                     aligned_a_sig = a_sig >> exp_diff;
@@ -222,9 +222,8 @@ always @(*) begin
             if (!is_zero_result) begin
                 leading_zeros = 0;
                 for (i = NSIG+3; i >= 0; i = i-1) begin
-                    if (sum_sig[i]) begin
+                    if (sum_sig[i] && leading_zeros == 0) begin
                         leading_zeros = NSIG+3 - i;
-                        i = -1; // Breaking loop
                     end
                 end
                 

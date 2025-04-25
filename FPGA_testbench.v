@@ -22,7 +22,7 @@ localparam [NEXP+NSIG-1:0]zero = {(NEXP+NSIG){1'b0}};
 hp_add #(.NEXP(NEXP), .NSIG(NSIG)) dut1 (.a(A), .b(B), .operation(1), .s(disp1), .bfFlags(), .exception()); //subtract
 hp_mul #(.NEXP(NEXP), .NSIG(NSIG)) dut2 (.a(A), .b(B), .p(disp2), .bfFlags(), .exception()); //multiply
 hp_div #(.NEXP(NEXP), .NSIG(NSIG)) dut3 (.a(A), .b(B), .q(disp3), .bfFlags(), .exception()); //division
-reciprocal #(.NEXP(NEXP), .NSIG(NSIG)) dut4 (.a(A), .Arecip(disp4), .recipFlags());
+reciprocal #(.NEXP(NEXP), .NSIG(NSIG)) dut4 (.A(A), .Arecip(disp4), .recipFlags());
 hp_add #(.NEXP(NEXP), .NSIG(NSIG)) dut0 (.a(A), .b(B), .operation(0), .s(disp0), .bfFlags(), .exception()); //add
 
 always @(*) begin
@@ -31,7 +31,7 @@ always @(*) begin
         6'b000010: A = {1'b0, nan};
         6'b000100: A = 16'h3F80; //1.0
         6'b001000: A = 16'hBF80; //-1.0
-        6'b010000: A = 16'h0040; //subnormal
+        6'b010000: A = 16'hC000; //-2.0
         6'b100000: A = 16'h3E80; //0.25 
         default: A = {1'b0, zero};
     endcase  
@@ -39,9 +39,9 @@ always @(*) begin
     case (Binput)
         6'b000001: B = {1'b0, inf};
         6'b000010: B = {1'b0, nan};
-        6'b000100: B = 16'h4000; //1.0
-        6'b001000: B = 16'h3F80; //-1.0
-        6'b010000: B = 16'h0040; //subnormal
+        6'b000100: B = 16'h4000; //2.0
+        6'b001000: B = 16'hC080; //-3.0
+        6'b010000: B = 16'h4080; //3.0
         6'b100000: B = 16'h3F00; //0.5
         default: B = {1'b0, zero};
     endcase

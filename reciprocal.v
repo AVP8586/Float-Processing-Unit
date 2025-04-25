@@ -1,3 +1,5 @@
+`include "recipSub.v"
+
 module reciprocal #(parameter NEXP = 8,               
 parameter NSIG = 7)(
     input [NEXP+NSIG:0] A,     
