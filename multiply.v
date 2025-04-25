@@ -47,10 +47,10 @@ end
 wire [2*NSIG+1:0] m_shifted = m << 1;  // Shift left by 1 to align bits
 
 wire [2*NSIG+1:0] round_input;
-assign round_input[2*NSIG:NSIG+1] = m_shifted[14:8];  // retainedBits (bits 14:8)
-assign round_input[NSIG] = m_shifted[7];              // guardBit (bit 7)
-assign round_input[NSIG-1] = m_shifted[6];            // roundBit (bit 6)
-assign round_input[NSIG-2:0] = |m_shifted[5:0];       // stickyBits (bits 5:0)
+assign round_input[2*NSIG:NSIG+1] = m_shifted[14:8];  
+assign round_input[NSIG] = m_shifted[7];             
+assign round_input[NSIG-1] = m_shifted[6];            
+assign round_input[NSIG-2:0] = |m_shifted[5:0];      
 wire [NSIG-1:0] rounded_sig;
 wire round_overflow;
 round r0(
@@ -66,10 +66,10 @@ wire [31:0] shift_amount = (underflow && $signed(final_exp) > $signed(-NSIG)) ?
                             ($signed(9'b0_0000_0001) - $signed(final_exp)) : 0;
 wire [2*NSIG+1:0] shifted_for_subnormal = m_shifted >> shift_amount;
 wire [2*NSIG+1:0] subnormal_round_input;
-assign subnormal_round_input[2*NSIG:NSIG+1] = shifted_for_subnormal[14:8];  // retainedBits
-assign subnormal_round_input[NSIG] = shifted_for_subnormal[7];              // guardBit
-assign subnormal_round_input[NSIG-1] = shifted_for_subnormal[6];            // roundBit
-assign subnormal_round_input[NSIG-2:0] = |shifted_for_subnormal[5:0];       // stickyBits
+assign subnormal_round_input[2*NSIG:NSIG+1] = shifted_for_subnormal[14:8];  
+assign subnormal_round_input[NSIG] = shifted_for_subnormal[7];             
+assign subnormal_round_input[NSIG-1] = shifted_for_subnormal[6];           
+assign subnormal_round_input[NSIG-2:0] = |shifted_for_subnormal[5:0];      
 wire [NSIG-1:0] subnormal_rounded_sig;
 wire subnormal_overflow;
 round r1(

@@ -1,7 +1,7 @@
 `include "class.sv"
 `include "round.v"
 `include "reciprocal.v"
-`include "mul.v"
+`include "multiply.v"
 
 module hp_div #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NEXP+NSIG:0] a, b,

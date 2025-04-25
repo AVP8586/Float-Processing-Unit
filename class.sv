@@ -32,14 +32,16 @@ always @(*) begin
     sig = bf16[NSIG-1:0];
     if (bfFlags[flags.SUBNORMAL]) begin
         for (i = 0; i < 7 && !done; i = i+1) begin
-            if (sig[NSIG-1] == 1'b0) begin
-                sig = sig << 1; // shifted left so we get the msb as one 
-                subnormalShift = subnormalShift + 1;
-            end
-            else begin
-                sig = sig << 1; // shifted so we get the implied bit as one 
-                subnormalShift = subnormalShift + 1; 
-                done = 1;; // a final shift
+            if (!done) begin
+                if (sig[NSIG-1] == 1'b0) begin
+                    sig = sig << 1; // shifted left so we get the msb as one 
+                    subnormalShift = subnormalShift + 1;
+                end
+                else begin
+                    sig = sig << 1; // shifted so we get the implied bit as one 
+                    subnormalShift = subnormalShift + 1; 
+                    done = 1; // a final shift
+                end 
             end
         end
         // bfSig = {1'b1, sig};

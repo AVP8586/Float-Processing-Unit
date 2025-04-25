@@ -1,4 +1,4 @@
-`include "reciprocalSub.v"
+`include "recipSub.v"
 
 module reciprocal #(parameter NEXP = 8,               
 parameter NSIG = 7)(
