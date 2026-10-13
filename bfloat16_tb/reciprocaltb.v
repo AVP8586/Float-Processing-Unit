@@ -1,3 +1,4 @@
+`include "../bfloat16_fpu/reciprocal.v"
 `timescale 1ns/1ps
 
 module tb_reciprocal;

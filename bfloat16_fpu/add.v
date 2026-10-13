@@ -1,3 +1,7 @@
+`include "../bfloat16_fpu/class.sv"
+`ifndef ADD_V
+`define ADD_V
+
 module hp_add #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NEXP+NSIG:0] a, b,
     input operation,  // 0 = add, 1 = subtract
@@ -135,16 +139,17 @@ always @(*) begin
     end
     else begin
         add_sigs = (a[NEXP+NSIG] == effective_b_sign);
-        a_exp = abfFlags[SUBNORMAL] ? 1 : a[NEXP+NSIG-1:NSIG];
-        b_exp = bbfFlags[SUBNORMAL] ? 1 : b[NEXP+NSIG-1:NSIG];
+        a_exp = abfFlags[SUBNORMAL] ? 8'd1 : a[NEXP+NSIG-1:NSIG];
+        b_exp = bbfFlags[SUBNORMAL] ? 8'd1 : b[NEXP+NSIG-1:NSIG];
         
         a_sig = {1'b0, abfFlags[NORMAL] ? 1'b1 : 1'b0, a[NSIG-1:0], 3'b000};
         b_sig = {1'b0, bbfFlags[NORMAL] ? 1'b1 : 1'b0, b[NSIG-1:0], 3'b000};
         
+        // For subnormals, use raw significand (0.xxxxxxx) - no implicit 1
         if (abfFlags[SUBNORMAL])
-            a_sig = {1'b0, abfSig, 3'b000};
+            a_sig = {1'b0, 1'b0, a[NSIG-1:0], 3'b000};
         if (bbfFlags[SUBNORMAL])
-            b_sig = {1'b0, bbfSig, 3'b000};
+            b_sig = {1'b0, 1'b0, b[NSIG-1:0], 3'b000};
         
         if (a_exp > b_exp || (a_exp == b_exp && a_sig > b_sig)) begin
             a_larger = 1'b1;
@@ -207,6 +212,7 @@ always @(*) begin
             if (carry) begin
                 sticky = sum_sig[0];
                 sum_sig = sum_sig >> 1;
+                sum_sig[NSIG+3] = 1'b1; // insert carry bit at MSB
                 if (sticky)
                     sum_sig[0] = 1'b1;
                 max_exp = max_exp + 1;
@@ -220,9 +226,9 @@ always @(*) begin
             
             is_zero_result = (sum_sig == 0);
             if (!is_zero_result) begin
-                leading_zeros = 0;
-                for (i = NSIG+3; i >= 0; i = i-1) begin
-                    if (sum_sig[i] && leading_zeros == 0) begin
+                leading_zeros = NSIG+3; // default: all zeros (shouldn't happen since is_zero_result is false)
+                for (i = 0; i <= NSIG+3; i = i+1) begin
+                    if (sum_sig[i]) begin
                         leading_zeros = NSIG+3 - i;
                     end
                 end
@@ -262,13 +268,26 @@ always @(*) begin
                 exception[OVERFLOW] = 1'b1;
                 s = {result_sign, {NEXP{1'b1}}, {NSIG{1'b0}}};
             end
-            else if (max_exp == 0) begin
-                if (|sum_sig[NSIG+3:3])
-                    bfFlags[SUBNORMAL] = 1'b1;
-                else
-                    bfFlags[ZERO] = 1'b1;
-                
-                s = {result_sign, {NEXP{1'b0}}, sum_sig[NSIG+2:3]};
+            else if (max_exp == 0 || (max_exp == 1 && !sum_sig[NSIG+3])) begin
+                // Subnormal result: exponent is 0, significand has no implicit 1
+                // When max_exp == 1 but no implicit 1 bit, shift sig right by 1
+                // to convert from biased-1 to biased-0 encoding
+                if (max_exp == 1 && !sum_sig[NSIG+3]) begin
+                    // Result has biased exponent 1 but no implicit 1 
+                    // → encode as subnormal with exponent 0
+                    if (|sum_sig[NSIG+2:3])
+                        bfFlags[SUBNORMAL] = 1'b1;
+                    else
+                        bfFlags[ZERO] = 1'b1;
+                    s = {result_sign, {NEXP{1'b0}}, sum_sig[NSIG+2:3]};
+                end
+                else begin
+                    if (|sum_sig[NSIG+3:3])
+                        bfFlags[SUBNORMAL] = 1'b1;
+                    else
+                        bfFlags[ZERO] = 1'b1;
+                    s = {result_sign, {NEXP{1'b0}}, sum_sig[NSIG+2:3]};
+                end
             end
             else begin
                 bfFlags[NORMAL] = 1'b1;
@@ -281,3 +300,6 @@ always @(*) begin
     end
 end
 endmodule
+
+
+`endif

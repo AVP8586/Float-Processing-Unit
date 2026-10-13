@@ -1,3 +1,4 @@
+`include "../bfloat16_fpu/inttofloat.sv"
 `timescale 1ns/1ps
 
 module tb_cvtsw; 

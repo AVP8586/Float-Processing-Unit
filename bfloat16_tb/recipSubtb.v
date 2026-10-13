@@ -1,3 +1,4 @@
+`include "../bfloat16_fpu/recipSub.v"
 `timescale 1ns/1ps
 
 module tb_reciprocal;
@@ -8,7 +9,7 @@ module tb_reciprocal;
     wire [NSIG:0] R;
     
     // Instantiate DUT
-    reciprocal #(.NEXP(NEXP), .NSIG(NSIG)) dut (
+    reciprocalSub #(.NEXP(NEXP), .NSIG(NSIG)) dut (
         .A(A),
         .R(R)
     );

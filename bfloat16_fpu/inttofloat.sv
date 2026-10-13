@@ -1,3 +1,7 @@
+`include "../bfloat16_fpu/round.v"
+`ifndef INTTOFLOAT_SV
+`define INTTOFLOAT_SV
+
 module hp_cvtsw #(
     parameter INTn = 32,
     parameter NEXP = 8,
@@ -17,7 +21,6 @@ localparam INFINITY  = ZERO + 1; //3
 localparam QNAN      = INFINITY + 1; //4
 localparam SNAN      = QNAN + 1; //5
 
-localparam BIAS = ((1 << (NEXP - 1)) - 1); 
 localparam EMAX = BIAS; 
 localparam EMIN = (1 - EMAX); 
 
@@ -79,3 +82,6 @@ round #(.NEXP(NEXP), .NSIG(NSIG)) U0 (.pSig(pSig), .roundedSig(sigOut), .overFlo
 // Adjust exponent based on rounding overflow
 assign expOut = rndoverflow ? (expIn + 1'b1) : expIn;
 endmodule
+
+
+`endif

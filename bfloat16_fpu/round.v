@@ -1,3 +1,6 @@
+`ifndef ROUND_V
+`define ROUND_V
+
 module round# (parameter NEXP = 8,
 parameter NSIG = 7)(
     input [2*NSIG+1:0]pSig,
@@ -30,3 +33,6 @@ always @(*) begin
     end
 end
 endmodule
+
+
+`endif

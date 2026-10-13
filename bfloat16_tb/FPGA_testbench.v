@@ -1,9 +1,9 @@
-`include "add.v"
-`include "division.v"
-`include "multiply.v"
-`include "reciprocal.v"
-`include "class.sv"
-`include "round.v"
+`include "../bfloat16_fpu/add.v"
+`include "../bfloat16_fpu/division.v"
+`include "../bfloat16_fpu/multiply.v"
+`include "../bfloat16_fpu/reciprocal.v"
+`include "../bfloat16_fpu/class.sv"
+`include "../bfloat16_fpu/round.v"
 
 module CombinedTester #(parameter NEXP = 8, parameter NSIG = 7)(
     input [5:0]Ainput, 

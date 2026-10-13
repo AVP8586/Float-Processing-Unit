@@ -1,4 +1,5 @@
-`include "class.sv"
+`include "../bfloat16_fpu/add.v"
+`include "../bfloat16_fpu/class.sv"
 `timescale 1ns/1ps
 
 module tb_hp_add;

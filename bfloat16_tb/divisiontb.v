@@ -1,5 +1,4 @@
-`include "class.sv"
-`include "round.v"
+`include "../bfloat16_fpu/division.v"
 `timescale 1ns/1ps
 
 module tb_hp_div;

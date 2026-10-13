@@ -1,26 +1,31 @@
+`include "../bfloat16_fpu/class.sv"
+`include "../bfloat16_fpu/round.v"
+`ifndef MULTIPLY_V
+`define MULTIPLY_V
+
 module hp_mul #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NEXP+NSIG:0] a, b,
     output [NEXP+NSIG:0] p,
     output reg [5:0] bfFlags,
     output reg [4:0] exception
 );
-localparam NORMAL    = 0;
+localparam NORMAL = 0;
 localparam SUBNORMAL = NORMAL + 1; // 1
-localparam ZERO      = SUBNORMAL + 1; //2 
+localparam ZERO = SUBNORMAL + 1; //2 
 localparam INFINITY  = ZERO + 1; //3
-localparam QNAN      = INFINITY + 1; //4
-localparam SNAN      = QNAN + 1; //5
+localparam QNAN = INFINITY + 1; //4
+localparam SNAN = QNAN + 1; //5
 
 localparam BIAS = ((1 << (NEXP - 1)) - 1); 
 localparam EMAX = BIAS; 
 localparam EMIN = (1 - EMAX); 
-localparam roundTiesToEven     = 0;
+localparam roundTiesToEven = 0;
                             
-localparam INVALID             = 0;
-localparam DIVIDEBYZERO        = 1;
-localparam OVERFLOW            = 2;
-localparam UNDERFLOW           = 3;
-localparam INEXACT             = 4;
+localparam INVALID = 0;
+localparam DIVIDEBYZERO = 1;
+localparam OVERFLOW = 2;
+localparam UNDERFLOW = 3;
+localparam INEXACT = 4;
 
 wire [NEXP+NSIG-1:0] zero = {(NEXP+NSIG){1'b0}};
 wire [NEXP+NSIG-1:0] inf = {{NEXP{1'b1}}, {NSIG{1'b0}}};
@@ -33,28 +38,34 @@ wire [NEXP:0] e1 = a[NEXP+NSIG-1:NSIG];
 wire [NEXP:0] e2 = b[NEXP+NSIG-1:NSIG];
 wire [NSIG:0] m1, m2;
 reg [2*NSIG+1:0] m;       
-reg [NEXP:0] e;       
+reg signed [NEXP+1:0] e;       
+integer i;
 
 hp_class aclass(.bf16(a), .bfSig(abfSig), .subnormalShift(asubnormalShift), .bfFlags(abfFlags));
 hp_class bclass(.bf16(b), .bfSig(bbfSig), .subnormalShift(bsubnormalShift), .bfFlags(bbfFlags));
 
-assign m1 = abfFlags[NORMAL] ? {1'b1, a[NSIG-1:0]} : abfFlags[SUBNORMAL] ? abfSig : 8'h00;
-assign m2 = bbfFlags[NORMAL] ? {1'b1, b[NSIG-1:0]} : bbfFlags[SUBNORMAL] ? bbfSig : 8'h00;
+// For subnormals, use raw significand (0.xxxxxxx) with biased exponent 1
+assign m1 = abfFlags[NORMAL] ? {1'b1, a[NSIG-1:0]} : abfFlags[SUBNORMAL] ? {1'b0, a[NSIG-1:0]} : 8'h00;
+assign m2 = bbfFlags[NORMAL] ? {1'b1, b[NSIG-1:0]} : bbfFlags[SUBNORMAL] ? {1'b0, b[NSIG-1:0]} : 8'h00;
 
 always @(*) begin
     m = m1 * m2;
-    e = e1 + e2 - BIAS;
+    // For subnormals, the stored exponent is 0 but true biased exponent is 1
+    e = (abfFlags[SUBNORMAL] ? 1 : e1) + (bbfFlags[SUBNORMAL] ? 1 : e2) - BIAS;
     
-    if (abfFlags[SUBNORMAL]) begin
-        e = e - asubnormalShift;
-    end
-    
-    if (bbfFlags[SUBNORMAL]) begin
-        e = e - bsubnormalShift;
-    end
     if(m[2*NSIG+1] == 1'b1) begin
         m = m >> 1;
         e = e + 1;
+    end
+    // Normalize products with leading zeros (from subnormal operands)
+    // Shift left until MSB is at m[2*NSIG] or exponent underflows
+    else begin
+        for (i = 0; i < 2*NSIG+1; i = i + 1) begin
+            if (m != 0 && !m[2*NSIG] && $signed(e) > $signed(0)) begin
+                m = m << 1;
+                e = e - 1;
+            end
+        end
     end
 end
 
@@ -73,11 +84,11 @@ round r0(
     .overFlow(round_overflow)
 );
 
-wire [NEXP:0] final_exp = e + round_overflow;
-wire overflow = final_exp >= 9'b1_0000_0000; // e >= 256
-wire underflow = $signed(final_exp) < $signed(9'b0_0000_0001); // e < 1
-wire [31:0] shift_amount = (underflow && $signed(final_exp) > $signed(-NSIG)) ? 
-                            ($signed(9'b0_0000_0001) - $signed(final_exp)) : 0;
+wire signed [NEXP+1:0] final_exp = e + round_overflow;
+wire overflow = (final_exp >= 255); // e >= 255 = Inf exponent
+wire underflow = (final_exp < 1); // e < 1
+wire [31:0] shift_amount = (underflow && final_exp > -NSIG) ? 
+                            (1 - final_exp) : 0;
 wire [2*NSIG+1:0] shifted_for_subnormal = m_shifted >> shift_amount;
 wire [2*NSIG+1:0] subnormal_round_input;
 assign subnormal_round_input[2*NSIG:NSIG+1] = shifted_for_subnormal[14:8];  
@@ -156,3 +167,5 @@ end
 assign p = {sign, result};
 
 endmodule
+
+`endif

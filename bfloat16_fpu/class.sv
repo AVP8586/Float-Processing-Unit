@@ -1,3 +1,6 @@
+`ifndef CLASS_SV
+`define CLASS_SV
+
 module hp_class #(parameter NEXP = 8,
 parameter NSIG = 7)(
     input [NEXP+NSIG:0]bf16, //nexp+nsig
@@ -65,8 +68,9 @@ always @(*) begin
                 end 
             end
         end
-        // bfSig = {1'b1, sig};
     end
     bfSig = {1'b1, sig};
 end
 endmodule
+
+`endif

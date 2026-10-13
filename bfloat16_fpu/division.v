@@ -1,3 +1,9 @@
+`include "../bfloat16_fpu/class.sv"
+`include "../bfloat16_fpu/multiply.v"
+`include "../bfloat16_fpu/reciprocal.v"
+`ifndef DIVISION_V
+`define DIVISION_V
+
 module hp_div #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NEXP+NSIG:0] a, b,
     output [NEXP+NSIG:0] q,
@@ -19,3 +25,5 @@ hp_class bclass(.bf16(brecip), .bfSig(bbfSig), .subnormalShift(bsubnormalShift),
 hp_mul div(.a(a), .b(brecip), .p(q), .bfFlags(bfFlags), .exception(exception));
 
 endmodule
+
+`endif

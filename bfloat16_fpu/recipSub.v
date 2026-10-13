@@ -1,3 +1,6 @@
+`ifndef RECIPSUB_V
+`define RECIPSUB_V
+
 module reciprocalSub #(parameter NEXP = 8, parameter NSIG = 7)(
     input [NSIG:0] A,  // assume 1.xxxxxxx form
     output reg [NSIG:0] R
@@ -42,3 +45,6 @@ always @(*) begin
     end
 end
 endmodule
+
+
+`endif
